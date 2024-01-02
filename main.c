@@ -39,9 +39,16 @@
 
 #define BUFFER_CAPACITY 1024
 
-char buffer[BUFFER_CAPACITY];
-size_t buffer_size = 0;
-size_t buffer_cursor = 0;
+struct {
+  char buffer[BUFFER_CAPACITY];
+  size_t size;
+} text;
+
+
+struct {
+  size_t x;
+  size_t y;
+} cursor;
 
 typedef struct {
     SDL_Texture *spritesheet;
@@ -102,23 +109,36 @@ void doInput(){
               case SDL_KEYDOWN: {
                   switch(event.key.keysym.sym){
                       case SDLK_BACKSPACE: {
-                          if(buffer_size > 0){
-                              buffer_size -= 1;
-                              buffer_cursor -= 1;
+                          if(text.size > 0){
+                              text.size -= 1;
+                              cursor.x -= 1;
                           }
                       } break;
+
+                    case SDLK_LEFT:{
+                      if(cursor.x > 0){
+                        cursor.x -=1;
+                      }
+                    }break;
+
+                    case SDLK_RIGHT:{
+                      if(cursor.x < text.size){
+                        cursor.x +=1;
+                      }
+                    }break;
                   }
               } break;
 
               case SDL_TEXTINPUT:{
                   size_t len = strlen(event.text.text);
-                  const size_t free_space = BUFFER_CAPACITY - buffer_size;
+                  const size_t free_space = BUFFER_CAPACITY - text.size;
                   if(len > free_space){
                       len = free_space;
                   }
-                  memcpy(buffer + buffer_size, event.text.text, len);
-                  buffer_size += len;
-                  buffer_cursor += len;
+                  strcat(text.buffer,event.text.text);
+                  /* memcpy(buffer + buffer_size, event.text.text, len); */
+                  text.size += len;
+                  cursor.x += len;
               } break;
 
               default:
@@ -174,6 +194,7 @@ void render_char(SDL_Renderer *renderer, Font font, char c, Vec2f pos, float sca
 }
 
 void render_text(SDL_Renderer *renderer, Font font, const char *text, size_t len, Vec2f pos, Uint32 color, float scale){
+
     csc(SDL_SetTextureColorMod(
             font.spritesheet,
             (color >> (8*2)) & 0xff,
@@ -214,18 +235,32 @@ Font font_load_from_file(const char *file_path){
     return font;
 }
 
-void render_cursor(Uint32 color){
+void render_cursor(Uint32 color,Vec2f pen){
+    /* SDL_Rect cursor = { */
+    /*    .x = (int)floorf(cursor_x * FONT_CHAR_WIDTH * FONT_SCALE), */
+    /*    .y = 0, */
+    /*    .w = FONT_CHAR_WIDTH*FONT_SCALE, */
+    /*    .h = FONT_CHAR_HEIGHT*FONT_SCALE, */
+    /* }; */
+
     SDL_Rect cursor = {
-       .x = (int)floorf(buffer_cursor * FONT_CHAR_WIDTH * FONT_SCALE),
-       .y = 0.80*FONT_CHAR_HEIGHT*FONT_SCALE,
+       .x = pen.x,
+       .y = pen.y,
        .w = FONT_CHAR_WIDTH*FONT_SCALE,
-       .h = 0.20*FONT_CHAR_HEIGHT*FONT_SCALE,
+       .h = FONT_CHAR_HEIGHT*FONT_SCALE,
     };
     csc(SDL_SetRenderDrawColor(app.renderer, UNHEX(color)));
-    csc(SDL_RenderFillRect(app.renderer,&cursor));
+
+    if(cursor.x < pen.x){
+      csc(SDL_RenderDrawRect(app.renderer,&cursor));
+    }else{
+      csc(SDL_RenderFillRect(app.renderer,&cursor));
+    }
 }
 
 
+
+//TODO: put text_buffer in a structure
 
 int main(){
     initSDL();
@@ -236,9 +271,9 @@ int main(){
     while(1){
         prepareScene();
         doInput();
-        render_text(app.renderer,font, buffer, buffer_size,vec2f(0.0,0.0), 0xFFFFFFFF, FONT_SCALE); //color is in ARGB format
-        render_cursor(0xFFFFFFFF);
+        render_text(app.renderer,font, text.buffer, text.size,vec2f(0.0,0.0), 0xFFFFFFFF, FONT_SCALE); //color is in ARGB format
         presentScene();
+        SDL_Delay(20);
     }
 
 
