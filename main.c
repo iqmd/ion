@@ -61,6 +61,7 @@ typedef struct {
 } App;
 
 App app;
+Vec2f pen;
 
 //Handles error code
 void csc(int code){
@@ -202,7 +203,7 @@ void render_text(SDL_Renderer *renderer, Font font, const char *text, size_t len
             (color >> (8*0)) & 0xff));
     csc(SDL_SetTextureAlphaMod(font.spritesheet,(color >> (8*3)) & 0xff));
 
-    Vec2f pen = pos;
+    pen = pos;
     for(size_t i = 0; i < len; i++){
         render_char(renderer, font, text[i], pen,scale);
         pen.x += FONT_CHAR_WIDTH*scale;
@@ -235,7 +236,7 @@ Font font_load_from_file(const char *file_path){
     return font;
 }
 
-void render_cursor(Uint32 color,Vec2f pen){
+void render_cursor(Uint32 color){
     /* SDL_Rect cursor = { */
     /*    .x = (int)floorf(cursor_x * FONT_CHAR_WIDTH * FONT_SCALE), */
     /*    .y = 0, */
@@ -272,6 +273,7 @@ int main(){
         prepareScene();
         doInput();
         render_text(app.renderer,font, text.buffer, text.size,vec2f(0.0,0.0), 0xFFFFFFFF, FONT_SCALE); //color is in ARGB format
+        render_cursor(0xFFFFFFFF);
         presentScene();
         SDL_Delay(20);
     }
