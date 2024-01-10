@@ -48,6 +48,7 @@ struct {
 struct {
   size_t x;
   size_t y;
+  bool moved;
 } cursor;
 
 typedef struct {
@@ -91,7 +92,7 @@ void initSDL(){
 
     csc(SDL_Init(SDL_INIT_VIDEO));
 
-    app.window = csp(SDL_CreateWindow("My Text Editor", 0,  0, SCREEN_WIDTH, SCREEN_HEIGHT, windowFlags));
+    app.window = csp(SDL_CreateWindow("Ion", 0,  0, SCREEN_WIDTH, SCREEN_HEIGHT, windowFlags));
     app.renderer =  csp(SDL_CreateRenderer(app.window,-1,rendererFlags));
 
 }
@@ -118,15 +119,25 @@ void doInput(){
 
                     case SDLK_LEFT:{
                       if(cursor.x > 0){
-                        cursor.x -=1;
+                        cursor.x -= FONT_CHAR_WIDTH*FONT_SCALE;
+                        cursor.moved = true;
                       }
                     }break;
 
                     case SDLK_RIGHT:{
-                      if(cursor.x < text.size){
-                        cursor.x +=1;
+                      if(cursor.x < pen.x){
+                        cursor.x += FONT_CHAR_WIDTH*FONT_SCALE;
+                      }else if(cursor.x - 1 == pen.x){
+                        cursor.moved = false;
                       }
                     }break;
+                    case SDLK_RETURN: {
+                      memcpy(text.buffer + text.size, "\n", 1);
+                      text.size += 1;
+                      cursor.moved = false;
+                      cursor.x = 0;
+                      cursor.y += FONT_CHAR_HEIGHT * FONT_SCALE;
+                    } break;
                   }
               } break;
 
@@ -136,10 +147,8 @@ void doInput(){
                   if(len > free_space){
                       len = free_space;
                   }
-                  strcat(text.buffer,event.text.text);
-                  /* memcpy(buffer + buffer_size, event.text.text, len); */
+                  memcpy(text.buffer + text.size, event.text.text, len);
                   text.size += len;
-                  cursor.x += len;
               } break;
 
               default:
@@ -181,7 +190,7 @@ SDL_Surface* initLoadImage(const char* file_path){
 
 
 
-void render_char(SDL_Renderer *renderer, Font font, char c, Vec2f pos, float scale){
+void render_char(Font font, char c, Vec2f pos, float scale){
     //this is where we paint our picture
     const size_t index =  c -  ASCII_START;
     SDL_Rect dest = {
@@ -190,11 +199,11 @@ void render_char(SDL_Renderer *renderer, Font font, char c, Vec2f pos, float sca
        .w = (int) floorf(FONT_CHAR_WIDTH * scale),
        .h = (int) floorf(FONT_CHAR_HEIGHT * scale),
     };
-    csc(SDL_RenderCopy(renderer,font.spritesheet, &font.glyph_table[index], &dest));
+    csc(SDL_RenderCopy(app.renderer,font.spritesheet, &font.glyph_table[index], &dest));
 
 }
 
-void render_text(SDL_Renderer *renderer, Font font, const char *text, size_t len, Vec2f pos, Uint32 color, float scale){
+void render_text(Font font, const char *text, size_t len, Vec2f pos, Uint32 color){
 
     csc(SDL_SetTextureColorMod(
             font.spritesheet,
@@ -205,9 +214,20 @@ void render_text(SDL_Renderer *renderer, Font font, const char *text, size_t len
 
     pen = pos;
     for(size_t i = 0; i < len; i++){
-        render_char(renderer, font, text[i], pen,scale);
-        pen.x += FONT_CHAR_WIDTH*scale;
+      if(text[i] != '\n'){
+        render_char(font, text[i], pen,FONT_SCALE);
+        pen.x += FONT_CHAR_WIDTH*FONT_SCALE;
+      }else{
+        pen.x = 0;
+        pen.y += FONT_CHAR_HEIGHT*FONT_SCALE;
+      }
     }
+
+    if(!cursor.moved){
+      cursor.x = pen.x;
+      cursor.y = pen.y;
+    }
+
 
 }
 
@@ -244,20 +264,21 @@ void render_cursor(Uint32 color){
     /*    .h = FONT_CHAR_HEIGHT*FONT_SCALE, */
     /* }; */
 
-    SDL_Rect cursor = {
-       .x = pen.x,
-       .y = pen.y,
+    SDL_Rect draw_cursor = {
+       .x = cursor.x,
+       .y = cursor.y,
        .w = FONT_CHAR_WIDTH*FONT_SCALE,
        .h = FONT_CHAR_HEIGHT*FONT_SCALE,
     };
     csc(SDL_SetRenderDrawColor(app.renderer, UNHEX(color)));
 
-    if(cursor.x < pen.x){
-      csc(SDL_RenderDrawRect(app.renderer,&cursor));
+    if(cursor.x < floorf(pen.x)){
+      csc(SDL_RenderDrawRect(app.renderer,&draw_cursor));
     }else{
-      csc(SDL_RenderFillRect(app.renderer,&cursor));
+      csc(SDL_RenderFillRect(app.renderer,&draw_cursor));
     }
 }
+
 
 
 
@@ -272,7 +293,7 @@ int main(){
     while(1){
         prepareScene();
         doInput();
-        render_text(app.renderer,font, text.buffer, text.size,vec2f(0.0,0.0), 0xFFFFFFFF, FONT_SCALE); //color is in ARGB format
+        render_text(font, text.buffer, text.size,vec2f(0.0,0.0), 0xFFFFFFFF); //color is in ARGB format
         render_cursor(0xFFFFFFFF);
         presentScene();
         SDL_Delay(20);
