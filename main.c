@@ -63,6 +63,7 @@ typedef struct {
 
 App app;
 Vec2f pen;
+bool ctrl_pressed = false;
 
 //Handles error code
 void csc(int code){
@@ -97,9 +98,25 @@ void initSDL(){
 
 }
 
+void saveText(){
+  const char *file_path = "file.txt";
+  FILE *file;
+
+  file = fopen(file_path,"w");
+
+  if(file == NULL){
+    fprintf(stderr,"Unable to open file %s\n",file_path);
+  }
+
+  fprintf(file,"%s",text.buffer);
+  fclose(file);
+
+}
+
 void doInput(){
 
         SDL_Event event = {0};
+
 
         while (SDL_PollEvent(&event)) {
           switch (event.type) {
@@ -138,6 +155,16 @@ void doInput(){
                       cursor.x = 0;
                       cursor.y += FONT_CHAR_HEIGHT * FONT_SCALE;
                     } break;
+
+                    case SDLK_LCTRL:{
+                      ctrl_pressed = true;
+                    }break;
+
+                    case SDLK_s:{
+                      if(ctrl_pressed){
+                        saveText();
+                      }
+                    }break;
                   }
               } break;
 
@@ -282,7 +309,7 @@ void render_cursor(Uint32 color){
 
 
 
-//TODO: put text_buffer in a structure
+
 
 int main(){
     initSDL();
@@ -298,7 +325,6 @@ int main(){
         presentScene();
         SDL_Delay(20);
     }
-
 
 
     SDL_DestroyTexture(font.spritesheet);
