@@ -31,8 +31,8 @@
 #define FONT_COLS 18
 #define FONT_SCALE 3
 #define FONT_ROWS 7
-#define FONT_CHAR_WIDTH ((float)FONT_WIDTH / FONT_COLS)
-#define FONT_CHAR_HEIGHT ((float)FONT_HEIGHT / FONT_ROWS)
+#define FONT_CHAR_WIDTH (FONT_WIDTH / FONT_COLS)
+#define FONT_CHAR_HEIGHT (FONT_HEIGHT / FONT_ROWS)
 
 #define ASCII_START 32
 #define ASCII_END 126
@@ -272,7 +272,7 @@ void render_cursor(Uint32 color){
     };
     csc(SDL_SetRenderDrawColor(app.renderer, UNHEX(color)));
 
-    if(cursor.x < floorf(pen.x)){
+    if(cursor.x < pen.x){
       csc(SDL_RenderDrawRect(app.renderer,&draw_cursor));
     }else{
       csc(SDL_RenderFillRect(app.renderer,&draw_cursor));
