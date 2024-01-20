@@ -48,6 +48,7 @@ struct {
 struct {
   size_t x;
   size_t y;
+  size_t index;
   bool moved;
 } cursor;
 
@@ -130,13 +131,14 @@ void doInput(){
                       case SDLK_BACKSPACE: {
                           if(text.size > 0){
                               text.size -= 1;
-                              cursor.x -= 1;
+                              cursor.index -= 1;
                           }
                       } break;
 
                     case SDLK_LEFT:{
                       if(cursor.x > 0){
                         cursor.x -= FONT_CHAR_WIDTH*FONT_SCALE;
+                        cursor.index -= 1;
                         cursor.moved = true;
                       }
                     }break;
@@ -144,7 +146,8 @@ void doInput(){
                     case SDLK_RIGHT:{
                       if(cursor.x < pen.x){
                         cursor.x += FONT_CHAR_WIDTH*FONT_SCALE;
-                      }else if(cursor.x - 1 == pen.x){
+                        cursor.index += 1;
+                      }else if(cursor.x  == pen.x){
                         cursor.moved = false;
                       }
                     }break;
@@ -163,19 +166,21 @@ void doInput(){
                     case SDLK_s:{
                       if(ctrl_pressed){
                         saveText();
+                        ctrl_pressed = false;
                       }
                     }break;
                   }
               } break;
 
               case SDL_TEXTINPUT:{
-                  size_t len = strlen(event.text.text);
                   const size_t free_space = BUFFER_CAPACITY - text.size;
-                  if(len > free_space){
-                      len = free_space;
+                  if(free_space == 0){
+                    fprintf(stderr,"Full Capacity");
+                  }else{
+                    memcpy(text.buffer + text.size, event.text.text, 1);
+                    text.size += 1;
+                    cursor.index = text.size - 1;
                   }
-                  memcpy(text.buffer + text.size, event.text.text, len);
-                  text.size += len;
               } break;
 
               default:
