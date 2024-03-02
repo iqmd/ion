@@ -129,10 +129,15 @@ void doInput(){
               case SDL_KEYDOWN: {
                   switch(event.key.keysym.sym){
                       case SDLK_BACKSPACE: {
-                          if(text.size > 0){
-                              text.size -= 1;
-                              cursor.index -= 1;
-                          }
+                        if(text.size == 0){
+                          break;
+                        }
+                        if(cursor.moved){
+                          memmove(text.buffer+cursor.index,text.buffer+cursor.index+1,text.size);
+                          cursor.x -= FONT_CHAR_WIDTH*FONT_SCALE;
+                        }
+                        cursor.index -=1 ;
+                        text.size -=1;
                       } break;
 
                     case SDLK_LEFT:{
