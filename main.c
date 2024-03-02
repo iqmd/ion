@@ -177,9 +177,18 @@ void doInput(){
                   if(free_space == 0){
                     fprintf(stderr,"Full Capacity");
                   }else{
-                    memcpy(text.buffer + text.size, event.text.text, 1);
-                    text.size += 1;
-                    cursor.index = text.size - 1;
+                    if(cursor.moved && cursor.index < text.size - 1){
+                      cursor.index += 1;
+                      memcpy(text.buffer+cursor.index+1,text.buffer+cursor.index,text.size);
+                      memcpy(text.buffer + cursor.index, event.text.text, 1);
+                      cursor.x += FONT_CHAR_WIDTH*FONT_SCALE;
+                      text.size +=1 ;
+                    }else{
+                      cursor.moved = false;
+                      memcpy(text.buffer + text.size, event.text.text, 1);
+                      text.size += 1;
+                      cursor.index = text.size - 1;
+                    }
                   }
               } break;
 
