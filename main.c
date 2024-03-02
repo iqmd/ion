@@ -299,16 +299,13 @@ void render_cursor(Uint32 color){
     SDL_Rect draw_cursor = {
        .x = cursor.x,
        .y = cursor.y,
-       .w = FONT_CHAR_WIDTH*FONT_SCALE,
+       /* .w = FONT_CHAR_WIDTH*FONT_SCALE, */
+       .w = 5,
        .h = FONT_CHAR_HEIGHT*FONT_SCALE,
     };
     csc(SDL_SetRenderDrawColor(app.renderer, UNHEX(color)));
 
-    if(cursor.x < pen.x){
-      csc(SDL_RenderDrawRect(app.renderer,&draw_cursor));
-    }else{
-      csc(SDL_RenderFillRect(app.renderer,&draw_cursor));
-    }
+    csc(SDL_RenderFillRect(app.renderer,&draw_cursor));
 }
 
 
