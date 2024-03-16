@@ -5,6 +5,7 @@
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_surface.h>
 #include <SDL2/SDL_video.h>
+#include <SDL2/SDL_ttf.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,9 +16,9 @@
 
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
-#define RED 0
-#define GREEN 0
-#define BLUE 0
+#define RED 25
+#define GREEN 25
+#define BLUE 25
 #define ALPHA 0
 
 #define UNHEX(color) \
@@ -33,6 +34,9 @@
 #define FONT_ROWS 7
 #define FONT_CHAR_WIDTH (FONT_WIDTH / FONT_COLS)
 #define FONT_CHAR_HEIGHT (FONT_HEIGHT / FONT_ROWS)
+#define FONT_SIZE 24
+#define HORIZONTAL_PADDING 15
+#define VERTICAL_PADDING 15
 
 #define ASCII_START 32
 #define ASCII_END 126
@@ -235,37 +239,62 @@ SDL_Surface* initLoadImage(const char* file_path){
 }
 
 
+TTF_Font* load_font(){
 
-void render_char(Font font, char c, Vec2f pos, float scale){
-    //this is where we paint our picture
-    const size_t index =  c -  ASCII_START;
+    TTF_Font* font = TTF_OpenFont("/home/iqbal/playground/ion/fonts/OpenSans-Regular.ttf",FONT_SIZE);
+
+  if (!font) {
+    printf("TTF_OpenFont: %s\n", TTF_GetError());
+  }
+
+  return font;
+}
+
+
+
+void render_char(TTF_Font* font, char ch, Vec2f pos,int* textWidth, int* textHeight){
+    SDL_Color fg = {255, 255, 255, 255};
+    SDL_Color bg = {0, 0, 0, 0};
+    int minx;
+    int maxx;
+    int miny;
+    int maxy;
+    int advance;
+    TTF_GlyphMetrics(font,  ch, &minx, &maxx, &miny,&maxy, &advance);
+    SDL_Surface* font_surface = TTF_RenderGlyph32_Blended(font,ch,fg);
+
     SDL_Rect dest = {
        .x = (int) floorf(pos.x),
        .y = (int) floorf(pos.y),
-       .w = (int) floorf(FONT_CHAR_WIDTH * scale),
-       .h = (int) floorf(FONT_CHAR_HEIGHT * scale),
+       .w = font_surface->w,
+       .h = font_surface->h
     };
-    csc(SDL_RenderCopy(app.renderer,font.spritesheet, &font.glyph_table[index], &dest));
+    *textWidth = advance;
+
+    SDL_Texture* textureText = SDL_CreateTextureFromSurface(app.renderer, font_surface);
+
+    SDL_FreeSurface(font_surface);
+
+    csc(SDL_RenderCopy(app.renderer,textureText, NULL, &dest));
+
+    SDL_DestroyTexture(textureText);
 
 }
 
-void render_text(Font font, const char *text, size_t len, Vec2f pos, Uint32 color){
+void render_text(TTF_Font* font, const char *text, size_t len, Vec2f pos){
 
-    csc(SDL_SetTextureColorMod(
-            font.spritesheet,
-            (color >> (8*2)) & 0xff,
-            (color >> (8*1)) & 0xff,
-            (color >> (8*0)) & 0xff));
-    csc(SDL_SetTextureAlphaMod(font.spritesheet,(color >> (8*3)) & 0xff));
+
+    int textWidth  = 0;
+    int textHeight = 0;
 
     pen = pos;
     for(size_t i = 0; i < len; i++){
       if(text[i] != '\n'){
-        render_char(font, text[i], pen,FONT_SCALE);
-        pen.x += FONT_CHAR_WIDTH*FONT_SCALE;
+        render_char(font, text[i], pen,&textWidth,&textHeight);
+        pen.x += textWidth;
       }else{
-        pen.x = 0;
-        pen.y += FONT_CHAR_HEIGHT*FONT_SCALE;
+        pen.x = HORIZONTAL_PADDING;
+        pen.y += FONT_SIZE + VERTICAL_PADDING;
       }
     }
 
@@ -303,48 +332,48 @@ Font font_load_from_file(const char *file_path){
 }
 
 void render_cursor(Uint32 color){
-    /* SDL_Rect cursor = { */
-    /*    .x = (int)floorf(cursor_x * FONT_CHAR_WIDTH * FONT_SCALE), */
-    /*    .y = 0, */
-    /*    .w = FONT_CHAR_WIDTH*FONT_SCALE, */
-    /*    .h = FONT_CHAR_HEIGHT*FONT_SCALE, */
-    /* }; */
 
     SDL_Rect draw_cursor = {
        .x = cursor.x,
        .y = cursor.y,
-       /* .w = FONT_CHAR_WIDTH*FONT_SCALE, */
-       .w = 5,
-       .h = FONT_CHAR_HEIGHT*FONT_SCALE,
+       .w = FONT_SIZE,
+       .h = FONT_SIZE,
     };
     csc(SDL_SetRenderDrawColor(app.renderer, UNHEX(color)));
 
     csc(SDL_RenderFillRect(app.renderer,&draw_cursor));
 }
 
+void initTTF(){
+    if (TTF_Init() == -1) {
+        printf("TTF_Init: %s\n", TTF_GetError());
+        exit(2);
+    }
 
+}
 
-
-
-
-int main(){
+int main(int argc, char** argv){
     initSDL();
+    initTTF();
 
-    //Taking the image width and height from the surface itself.
-    Font font = font_load_from_file("./font.png");
+    TTF_Font* font = load_font();
+
+    if(argc > 1){
+      openFile(argv[1]);
+    }
 
     while(1){
         prepareScene();
         doInput();
-        render_text(font, text.buffer, text.size,vec2f(0.0,0.0), 0xFFFFFFFF); //color is in ARGB format
+        render_text(font, text.buffer, text.size,vec2f(HORIZONTAL_PADDING,VERTICAL_PADDING));
         render_cursor(0xFFFFFFFF);
         presentScene();
         SDL_Delay(20);
     }
 
 
-    SDL_DestroyTexture(font.spritesheet);
-    IMG_Quit();
+    TTF_CloseFont(font);
+    TTF_Quit();
     SDL_Quit();
 
     return 0;
