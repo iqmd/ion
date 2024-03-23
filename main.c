@@ -118,6 +118,27 @@ void saveText(){
 
 }
 
+void open_file(const char* filename){
+  FILE *file;
+  file = fopen(filename, "r");
+
+  if(file == NULL){
+    fprintf(stderr, "Unable to open %s\n",filename);
+  }
+
+  char ch;
+  while ((ch = getc(file)) != EOF) {
+    const size_t free_space = BUFFER_CAPACITY - text.size;
+    if (free_space > 0) {
+      memcpy(text.buffer + text.size, &ch, 1);
+      text.size += 1;
+    }
+  }
+
+
+  fclose(file);
+}
+
 void doInput(){
 
         SDL_Event event = {0};
