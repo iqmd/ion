@@ -34,7 +34,7 @@
 #define FONT_ROWS 7
 #define FONT_CHAR_WIDTH (FONT_WIDTH / FONT_COLS)
 #define FONT_CHAR_HEIGHT (FONT_HEIGHT / FONT_ROWS)
-#define FONT_SIZE 24
+#define FONT_SIZE 18
 #define HORIZONTAL_PADDING 15
 #define VERTICAL_PADDING 15
 
@@ -211,7 +211,7 @@ void doInput(){
                       cursor.index += 1;
                       memcpy(text.buffer+cursor.index+1,text.buffer+cursor.index,text.size);
                       memcpy(text.buffer + cursor.index, event.text.text, 1);
-                      cursor.x += FONT_CHAR_WIDTH*FONT_SCALE;
+                      cursor.x += FONT_SIZE;
                       text.size +=1 ;
                     }else{
                       cursor.moved = false;
@@ -357,7 +357,7 @@ void render_cursor(Uint32 color){
     SDL_Rect draw_cursor = {
        .x = cursor.x,
        .y = cursor.y,
-       .w = FONT_SIZE,
+       .w = FONT_SIZE*0.15,
        .h = FONT_SIZE,
     };
     csc(SDL_SetRenderDrawColor(app.renderer, UNHEX(color)));
@@ -380,7 +380,7 @@ int main(int argc, char** argv){
     TTF_Font* font = load_font();
 
     if(argc > 1){
-      openFile(argv[1]);
+      open_file(argv[1]);
     }
 
     while(1){
