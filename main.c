@@ -27,48 +27,46 @@
     ((color) >> (8*0)) & 0xFF, \
     ((color) >> (8*3)) & 0xFF \
 
-#define FONT_WIDTH 128
-#define FONT_HEIGHT 64
-#define FONT_COLS 18
-#define FONT_SCALE 3
-#define FONT_ROWS 7
-#define FONT_CHAR_WIDTH (FONT_WIDTH / FONT_COLS)
-#define FONT_CHAR_HEIGHT (FONT_HEIGHT / FONT_ROWS)
-#define FONT_SIZE 18
+#define FONT_SIZE 20
 #define HORIZONTAL_PADDING 15
-#define VERTICAL_PADDING 15
+#define VERTICAL_PADDING FONT_SIZE*0.25
 
-#define ASCII_START 32
-#define ASCII_END 126
 
-#define BUFFER_CAPACITY 1024
+#define BUFFER_CAPACITY 1024*1000
 
-struct {
+typedef struct {
   char buffer[BUFFER_CAPACITY];
   size_t size;
-} text;
+} Text;
 
 
-struct {
+typedef struct {
   size_t x;
   size_t y;
   size_t index;
   bool moved;
-} cursor;
+} Cursor;
 
-typedef struct {
-    SDL_Texture *spritesheet;
-    SDL_Rect glyph_table[ASCII_END - ASCII_START + 1];
-} Font;
 
 typedef struct {
     SDL_Renderer *renderer;
     SDL_Window *window;
 } App;
 
-App app;
-Vec2f pen;
-bool ctrl_pressed = false;
+
+typedef struct {
+  App app;
+  Vec2f pen;
+  bool ctrl_pressed;
+  Text text;
+  Cursor cursor;
+  size_t text_width;
+  size_t char_width;
+  size_t char_height;
+
+} Editor;
+
+Editor E;
 
 //Handles error code
 void csc(int code){
@@ -89,6 +87,7 @@ void *csp(void *ptr){
 }
 
 
+
 //Initializing SDL
 void initSDL(){
     int rendererFlags, windowFlags;
@@ -98,8 +97,8 @@ void initSDL(){
 
     csc(SDL_Init(SDL_INIT_VIDEO));
 
-    app.window = csp(SDL_CreateWindow("Ion", 0,  0, SCREEN_WIDTH, SCREEN_HEIGHT, windowFlags));
-    app.renderer =  csp(SDL_CreateRenderer(app.window,-1,rendererFlags));
+    E.app.window = csp(SDL_CreateWindow("Ion", 0,  0, SCREEN_WIDTH, SCREEN_HEIGHT, windowFlags));
+    E.app.renderer =  csp(SDL_CreateRenderer(E.app.window,-1,rendererFlags));
 
 }
 
@@ -113,7 +112,7 @@ void saveText(){
     fprintf(stderr,"Unable to open file %s\n",file_path);
   }
 
-  fprintf(file,"%s",text.buffer);
+  fprintf(file,"%s",E.text.buffer);
   fclose(file);
 
 }
@@ -128,10 +127,10 @@ void open_file(const char* filename){
 
   char ch;
   while ((ch = getc(file)) != EOF) {
-    const size_t free_space = BUFFER_CAPACITY - text.size;
+    const size_t free_space = BUFFER_CAPACITY - E.text.size;
     if (free_space > 0) {
-      memcpy(text.buffer + text.size, &ch, 1);
-      text.size += 1;
+      memcpy(E.text.buffer + E.text.size, &ch, 1);
+      E.text.size += 1;
     }
   }
 
@@ -154,70 +153,70 @@ void doInput(){
               case SDL_KEYDOWN: {
                   switch(event.key.keysym.sym){
                       case SDLK_BACKSPACE: {
-                        if(text.size == 0){
+                        if(E.text.size == 0){
                           break;
                         }
-                        if(cursor.moved){
-                          memmove(text.buffer+cursor.index,text.buffer+cursor.index+1,text.size);
-                          cursor.x -= FONT_CHAR_WIDTH*FONT_SCALE;
+                        if(E.cursor.moved){
+                          memmove(E.text.buffer+E.cursor.index,E.text.buffer+E.cursor.index+1,E.text.size);
+                          E.cursor.x -= E.char_width;
                         }
-                        cursor.index -=1 ;
-                        text.size -=1;
+                        E.cursor.index -=1 ;
+                        E.text.size -=1;
                       } break;
 
                     case SDLK_LEFT:{
-                      if(cursor.x > 0){
-                        cursor.x -= FONT_CHAR_WIDTH*FONT_SCALE;
-                        cursor.index -= 1;
-                        cursor.moved = true;
+                      if(E.cursor.x > 0){
+                        E.cursor.x -= E.char_width;
+                        E.cursor.index -= 1;
+                        E.cursor.moved = true;
                       }
                     }break;
 
                     case SDLK_RIGHT:{
-                      if(cursor.x < pen.x){
-                        cursor.x += FONT_CHAR_WIDTH*FONT_SCALE;
-                        cursor.index += 1;
-                      }else if(cursor.x  == pen.x){
-                        cursor.moved = false;
+                      if(E.cursor.x < E.pen.x){
+                        E.cursor.x += E.char_width;
+                        E.cursor.index += 1;
+                      }else if(E.cursor.x  == E.pen.x){
+                        E.cursor.moved = false;
                       }
                     }break;
                     case SDLK_RETURN: {
-                      memcpy(text.buffer + text.size, "\n", 1);
-                      text.size += 1;
-                      cursor.moved = false;
-                      cursor.x = 0;
-                      cursor.y += FONT_CHAR_HEIGHT * FONT_SCALE;
+                      memcpy(E.text.buffer + E.text.size, "\n", 1);
+                      E.text.size += 1;
+                      E.cursor.moved = false;
+                      E.cursor.x = 0;
+                      E.cursor.y += E.char_height;
                     } break;
 
                     case SDLK_LCTRL:{
-                      ctrl_pressed = true;
+                      E.ctrl_pressed = true;
                     }break;
 
                     case SDLK_s:{
-                      if(ctrl_pressed){
+                      if(E.ctrl_pressed){
                         saveText();
-                        ctrl_pressed = false;
+                        E.ctrl_pressed = false;
                       }
                     }break;
                   }
               } break;
 
               case SDL_TEXTINPUT:{
-                  const size_t free_space = BUFFER_CAPACITY - text.size;
+                  const size_t free_space = BUFFER_CAPACITY - E.text.size;
                   if(free_space == 0){
                     fprintf(stderr,"Full Capacity");
                   }else{
-                    if(cursor.moved && cursor.index < text.size - 1){
-                      cursor.index += 1;
-                      memcpy(text.buffer+cursor.index+1,text.buffer+cursor.index,text.size);
-                      memcpy(text.buffer + cursor.index, event.text.text, 1);
-                      cursor.x += FONT_SIZE;
-                      text.size +=1 ;
+                    if(E.cursor.moved && E.cursor.index < E.text.size - 1){
+                      E.cursor.index += 1;
+                      memcpy(E.text.buffer+E.cursor.index+1,E.text.buffer+E.cursor.index,E.text.size);
+                      memcpy(E.text.buffer + E.cursor.index, event.text.text, 1);
+                      E.cursor.x += E.char_width;
+                      E.text.size +=1 ;
                     }else{
-                      cursor.moved = false;
-                      memcpy(text.buffer + text.size, event.text.text, 1);
-                      text.size += 1;
-                      cursor.index = text.size - 1;
+                      E.cursor.moved = false;
+                      memcpy(E.text.buffer + E.text.size, event.text.text, 1);
+                      E.text.size += 1;
+                      E.cursor.index = E.text.size - 1;
                     }
                   }
               } break;
@@ -229,40 +228,21 @@ void doInput(){
 }
 
 void prepareScene(){
-    csc(SDL_SetRenderDrawColor(app.renderer,RED, GREEN, BLUE,ALPHA));
-    csc(SDL_RenderClear(app.renderer));
+    csc(SDL_SetRenderDrawColor(E.app.renderer,RED, GREEN, BLUE,ALPHA));
+    csc(SDL_RenderClear(E.app.renderer));
 
 }
 
 void presentScene(){
-    SDL_RenderPresent(app.renderer);
-}
-
-//To load an Image
-SDL_Surface* initLoadImage(const char* file_path){
-
-    //Initialize the IMG to use PNG format
-    int flags = IMG_INIT_PNG;
-    int initStatus = IMG_Init(flags);
-
-    if((initStatus & flags) != flags){
-        fprintf(stderr, "SDL2_image format not found !!\n");
-    }
-
-    SDL_Surface *image = IMG_Load(file_path);
-
-    if(!image){
-        fprintf(stderr, "Image not loaded \n");
-        exit(1);
-    }
-
-    return image;
+    SDL_RenderPresent(E.app.renderer);
 }
 
 
 TTF_Font* load_font(){
 
-    TTF_Font* font = TTF_OpenFont("/home/iqbal/playground/ion/fonts/OpenSans-Regular.ttf",FONT_SIZE);
+  TTF_Font* font = TTF_OpenFont("/home/iqbal/playground/ion/fonts/Hack Regular Nerd Font Complete Mono.ttf",FONT_SIZE);
+  E.char_height = TTF_FontHeight(font);
+  E.char_width = TTF_FontFaceIsFixedWidth(font);
 
   if (!font) {
     printf("TTF_OpenFont: %s\n", TTF_GetError());
@@ -273,15 +253,9 @@ TTF_Font* load_font(){
 
 
 
-void render_char(TTF_Font* font, char ch, Vec2f pos,int* textWidth, int* textHeight){
+void render_char(TTF_Font* font, char ch, Vec2f pos){
     SDL_Color fg = {255, 255, 255, 255};
-    SDL_Color bg = {0, 0, 0, 0};
-    int minx;
-    int maxx;
-    int miny;
-    int maxy;
-    int advance;
-    TTF_GlyphMetrics(font,  ch, &minx, &maxx, &miny,&maxy, &advance);
+
     SDL_Surface* font_surface = TTF_RenderGlyph32_Blended(font,ch,fg);
 
     SDL_Rect dest = {
@@ -290,13 +264,15 @@ void render_char(TTF_Font* font, char ch, Vec2f pos,int* textWidth, int* textHei
        .w = font_surface->w,
        .h = font_surface->h
     };
-    *textWidth = advance;
 
-    SDL_Texture* textureText = SDL_CreateTextureFromSurface(app.renderer, font_surface);
+    E.char_width = font_surface->w;
+    E.char_height = font_surface->h;
+
+    SDL_Texture* textureText = SDL_CreateTextureFromSurface(E.app.renderer, font_surface);
 
     SDL_FreeSurface(font_surface);
 
-    csc(SDL_RenderCopy(app.renderer,textureText, NULL, &dest));
+    csc(SDL_RenderCopy(E.app.renderer,textureText, NULL, &dest));
 
     SDL_DestroyTexture(textureText);
 
@@ -304,65 +280,37 @@ void render_char(TTF_Font* font, char ch, Vec2f pos,int* textWidth, int* textHei
 
 void render_text(TTF_Font* font, const char *text, size_t len, Vec2f pos){
 
-
-    int textWidth  = 0;
-    int textHeight = 0;
-
-    pen = pos;
+    E.pen = pos;
     for(size_t i = 0; i < len; i++){
       if(text[i] != '\n'){
-        render_char(font, text[i], pen,&textWidth,&textHeight);
-        pen.x += textWidth;
+        render_char(font, text[i], E.pen);
+        E.pen.x += E.char_width;
       }else{
-        pen.x = HORIZONTAL_PADDING;
-        pen.y += FONT_SIZE + VERTICAL_PADDING;
+        E.pen.x = 0;
+        E.pen.y += E.char_height+VERTICAL_PADDING;
       }
     }
 
-    if(!cursor.moved){
-      cursor.x = pen.x;
-      cursor.y = pen.y;
+    if(!E.cursor.moved){
+      E.cursor.x = E.pen.x;
+      E.cursor.y = E.pen.y;
     }
 
 
 }
 
-
-Font font_load_from_file(const char *file_path){
-    Font font = {0};
-    SDL_Surface* font_image = initLoadImage(file_path);
-    font.spritesheet = csp(SDL_CreateTextureFromSurface(app.renderer, font_image));
-    SDL_FreeSurface(font_image);
-
-    for(size_t ascii = ASCII_START; ascii <= ASCII_END; ascii++){
-        const size_t index = ascii - 32;
-        const size_t row = index / FONT_COLS;
-        const size_t col = index % FONT_COLS;
-
-        // this is from where we take the pixels
-        font.glyph_table[index] = (SDL_Rect){
-            .x = col * FONT_CHAR_WIDTH,
-            .y = row * FONT_CHAR_HEIGHT,
-            .w = FONT_CHAR_WIDTH,
-            .h = FONT_CHAR_HEIGHT,
-        };
-
-    }
-
-    return font;
-}
 
 void render_cursor(Uint32 color){
 
     SDL_Rect draw_cursor = {
-       .x = cursor.x,
-       .y = cursor.y,
-       .w = FONT_SIZE*0.15,
-       .h = FONT_SIZE,
+       .x = E.cursor.x,
+       .y = E.cursor.y,
+       .w = E.char_width,
+       .h = E.char_height,
     };
-    csc(SDL_SetRenderDrawColor(app.renderer, UNHEX(color)));
+    csc(SDL_SetRenderDrawColor(E.app.renderer, UNHEX(color)));
 
-    csc(SDL_RenderFillRect(app.renderer,&draw_cursor));
+    csc(SDL_RenderFillRect(E.app.renderer,&draw_cursor));
 }
 
 void initTTF(){
@@ -386,7 +334,7 @@ int main(int argc, char** argv){
     while(1){
         prepareScene();
         doInput();
-        render_text(font, text.buffer, text.size,vec2f(HORIZONTAL_PADDING,VERTICAL_PADDING));
+        render_text(font, E.text.buffer, E.text.size,vec2f(0.0,0.0));
         render_cursor(0xFFFFFFFF);
         presentScene();
         SDL_Delay(20);
