@@ -29,7 +29,7 @@
 
 #define FONT_SIZE 20
 #define HORIZONTAL_PADDING 15
-#define VERTICAL_PADDING FONT_SIZE*0.25
+#define VERTICAL_PADDING FONT_SIZE*0.20
 
 
 #define BUFFER_CAPACITY 1024*1000
@@ -305,7 +305,7 @@ void render_cursor(Uint32 color){
     SDL_Rect draw_cursor = {
        .x = E.cursor.x,
        .y = E.cursor.y,
-       .w = E.char_width,
+       .w = E.char_width*0.15,
        .h = E.char_height,
     };
     csc(SDL_SetRenderDrawColor(E.app.renderer, UNHEX(color)));
